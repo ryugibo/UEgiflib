@@ -4,10 +4,10 @@
 
 ### TODO List
 
-[x] Giflib library integration.
-[x] First frame of .gif import to Texture. [TEST]
-[ ] Import all frame to the one texture.
-[ ] Generate Sprite and SpriteFlipbook.
+- [x] Giflib library integration.
+- [x] First frame of .gif import to Texture. [TEST]
+- [ ] Import all frame to the one texture.
+- [ ] Generate Sprite and SpriteFlipbook.
 
 
 ### How to build giflib.
