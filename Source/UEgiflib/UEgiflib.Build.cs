@@ -34,7 +34,7 @@ public class UEgiflib : ModuleRules
 				"UnrealEd",
 				"Paper2D",
 				"Paper2DEditor",
-                "ImageWrapper",
+				"ImageWrapper",
 				// ... add other public dependencies that you statically link with here ...
 			}
             );
