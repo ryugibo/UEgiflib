@@ -67,7 +67,7 @@ UTexture2D* UGifFactory::DecodeGifData(const void* Data, int32 Size, UObject* In
 		return nullptr;
 	}
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
-
+	UTexture2D* Texture = nullptr;
 	for (int i = 0; i < FileType->ImageCount; i++)
 	{
 		SavedImage& Frame = FileType->SavedImages[i];
@@ -84,7 +84,7 @@ UTexture2D* UGifFactory::DecodeGifData(const void* Data, int32 Size, UObject* In
 				HasGCB = true;
 			}
 		}
-		ColorMapObject* CMO = FileType->SColorMap ? FileType->SColorMap : Frame.ImageDesc.ColorMap;
+		ColorMapObject* CMO = Frame.ImageDesc.ColorMap ? Frame.ImageDesc.ColorMap : FileType->SColorMap;
 		GifColorType* ColorMap = CMO->Colors;
 		uint32 Raster_i = 0;
 
@@ -146,33 +146,37 @@ UTexture2D* UGifFactory::DecodeGifData(const void* Data, int32 Size, UObject* In
 			}
 			*/
 
-			UTexture2D* Texture = CreateTexture2D(InParent, Name, Flags);
-			if (Texture)
+			FString NewName = FString::Printf(TEXT("%2d"), i);
+			UTexture2D* NewTexture = CreateTexture2D(InParent, *NewName, Flags);
+			if (NewTexture)
 			{
 				// Set texture properties.
-				Texture->Source.Init(
+				NewTexture->Source.Init(
 					BmpImageWrapper->GetWidth(),
 					BmpImageWrapper->GetHeight(),
 					/*NumSlices=*/ 1,
 					/*NumMips=*/ 1,
 					TSF_BGRA8
 				);
-				GetDefault<UPaperImporterSettings>()->ApplyTextureSettings(Texture);
+				GetDefault<UPaperImporterSettings>()->ApplyTextureSettings(NewTexture);
 
 				const TArray<uint8>* RawBMP = nullptr;
 				if (BmpImageWrapper->GetRaw(BmpImageWrapper->GetFormat(), BmpImageWrapper->GetBitDepth(), RawBMP))
 				{
-					uint8* MipData = Texture->Source.LockMip(0);
+					uint8* MipData = NewTexture->Source.LockMip(0);
 					FMemory::Memcpy(MipData, RawBMP->GetData(), RawBMP->Num());
-					Texture->Source.UnlockMip(0);
+					NewTexture->Source.UnlockMip(0);
 				}
+				CleanUp();
 			}
-
-			return Texture;
+			Texture = NewTexture;
+			Texture->MarkPackageDirty();
+			Texture->PostEditChange();
+			//return Texture;
 		}
 	}
 
-	return nullptr;
+	return Texture;
 }
 
 int UGifFactory::OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Length)

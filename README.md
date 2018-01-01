@@ -6,8 +6,10 @@
 
 - [x] Giflib library integration.
 - [x] First frame of .gif import to Texture. [TEST]
-- [ ] Import all frame to the one texture.
+- [x] Import all frame to each texture.
 - [ ] Generate Sprite and SpriteFlipbook.
+- [ ] Import all frame to the one texture.
+- [ ] Control size of texture atlas.
 
 
 ### How to build giflib.
