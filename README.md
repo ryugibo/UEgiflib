@@ -7,9 +7,14 @@
 - [x] Giflib library integration.
 - [x] First frame of .gif import to Texture. [TEST]
 - [x] Import all frame to each texture.
-- [ ] Generate Sprite and SpriteFlipbook.
-- [ ] Import all frame to the one texture.
-- [ ] Control size of texture atlas.
+- [x] Generate Sprite and SpriteFlipbook.
+- [ ] Settings
+  - [ ] Sprite Default Pivot
+  - [ ] Apply frame speed from gif delay data
+- [ ] Texture Atlas
+  - [ ] Import frames to a texture be merged.
+  - [ ] Control size of one texture.
+
 
 
 ### How to build giflib.
