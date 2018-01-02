@@ -190,7 +190,7 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 
 		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
 		KeyFrame->Sprite = NewSprite;
-		KeyFrame->FrameRun = HasGCB ? (GCB.DelayTime) : 1;
+		KeyFrame->FrameRun = 1;//HasGCB ? (GCB.DelayTime) : 1;
 
 		// Update Last Image Infos
 		LastTexture = NewTexture;
