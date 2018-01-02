@@ -25,15 +25,15 @@ public:
 
 private:
 
-	bool DecodeGifDataToTextures(const void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn, TArray<class UTexture2D*>* OutTextures = nullptr);
+	bool DecodeGifDataToSprites(const void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn, TArray<class UPaperSprite*>* OutSprites = nullptr);
 
-	bool GenerateSprites(UObject* InParent, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn, const TArray<class UTexture2D*>& InTextures, TArray<class UPaperSprite*>* OutSprites = nullptr);
+	class UTexture2D* CreateTextureFromRawData(const TArray<uint8>& InRawData, const GifWord& InWidth, const GifWord& InHeight, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
+
+	class UPaperSprite* CreatePaperSprite(class UTexture2D* InitialTexture, const GifWord& InLeft, const GifWord& InTop, UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
 
 	class UPaperFlipbook* CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn, const TArray<class UPaperSprite*>& AllSprites);
 
 	static int OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Length);
-
-	static class UPaperSprite* CreatePaperSprite(class UTexture2D* InitialTexture, UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
 
 	// * Begin - Redefine private functions of UTextureFactory
 	static bool IsImportResolutionValid(int32 Width, int32 Height, bool bAllowNonPowerOfTwo, class FFeedbackContext* Warn);

@@ -9,7 +9,7 @@
 - [x] Import all frame to each texture.
 - [x] Generate Sprite and SpriteFlipbook.
 - [ ] Settings
-  - [ ] Sprite Default Pivot
+  - [x] Sprite Pivot
   - [ ] Apply frame speed from gif delay data
 - [ ] Texture Atlas
   - [ ] Import frames to a texture be merged.
