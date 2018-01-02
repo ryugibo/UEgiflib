@@ -37,7 +37,7 @@ public class UEgiflib : ModuleRules
 				"ImageWrapper",
 				// ... add other public dependencies that you statically link with here ...
 			}
-            );
+			);
 			
 		
 		PrivateDependencyModuleNames.AddRange(
