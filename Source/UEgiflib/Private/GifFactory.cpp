@@ -86,18 +86,19 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 		return false;
 	}
 
+	const GifWord CanvasWidth = FileType->SWidth;
+	const GifWord CanvasHeight = FileType->SHeight;
+
 	UTexture2D* LastTexture = nullptr;
 	int LastDisposalMode = 0;
 	for (int i = 0; i < FileType->ImageCount; i++)
 	{
 		SavedImage& Frame = FileType->SavedImages[i];
 
-		GifWord ImageLeft, ImageTop, ImageHeight, ImageWidth;
-
-		ImageHeight = Frame.ImageDesc.Height;
-		ImageWidth = Frame.ImageDesc.Width;
-		ImageLeft = Frame.ImageDesc.Left;
-		ImageTop = Frame.ImageDesc.Top;
+		const GifWord ImageLeft = Frame.ImageDesc.Left;
+		const GifWord ImageTop = Frame.ImageDesc.Top;
+		const GifWord ImageHeight = Frame.ImageDesc.Height;
+		const GifWord ImageWidth = Frame.ImageDesc.Width;
 
 		TArray<uint8> Image;
 		Image.AddUninitialized(ImageWidth * ImageHeight * 4);
@@ -186,7 +187,9 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 
 			NewTexture = CreateTextureFromRawData(Image, ImageWidth, ImageHeight, InParent, *SourceName, Flags, Context, Warn);
 		}
-		UPaperSprite* NewSprite = CreatePaperSprite(NewTexture, ImageLeft, ImageTop, UPaperSprite::StaticClass(), InParent, *SourceName, Flags, Context, Warn);
+
+		FVector2D Pivot((CanvasWidth / 2) - ImageLeft, (CanvasHeight / 2) - ImageTop);
+		UPaperSprite* NewSprite = CreatePaperSprite(NewTexture, Pivot, UPaperSprite::StaticClass(), InParent, *SourceName, Flags, Context, Warn);
 
 		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
 		KeyFrame->Sprite = NewSprite;
@@ -207,7 +210,7 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 	return true;
 }
 
-UTexture2D* UGifFactory::CreateTextureFromRawData(const TArray<uint8>& InRawData, const GifWord& Width, const GifWord& Height, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+UTexture2D* UGifFactory::CreateTextureFromRawData(const TArray<uint8>& InRawData, const int32& Width, const int32& Height, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 
@@ -255,7 +258,7 @@ UTexture2D* UGifFactory::CreateTextureFromRawData(const TArray<uint8>& InRawData
 	return Texture;
 }
 
-UPaperSprite* UGifFactory::CreatePaperSprite(class UTexture2D* InitialTexture, const GifWord& InLeft, const GifWord& InTop, UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn)
+UPaperSprite* UGifFactory::CreatePaperSprite(class UTexture2D* InitialTexture, const FVector2D& Pivot, UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn)
 {
 	UPaperSprite* NewSprite = NewObject<UPaperSprite>(InParent, Class, Name, Flags | RF_Transactional);
 	if (NewSprite && InitialTexture)
@@ -269,7 +272,7 @@ UPaperSprite* UGifFactory::CreatePaperSprite(class UTexture2D* InitialTexture, c
 
 		NewSprite->InitializeSprite(SpriteInitParams);
 
-		NewSprite->SetPivotMode(ESpritePivotMode::Custom, FVector2D(-InLeft, -InTop));
+		NewSprite->SetPivotMode(ESpritePivotMode::Custom, Pivot);
 	}
 
 	return NewSprite;
