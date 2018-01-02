@@ -1,12 +1,26 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "GifFactory.h"
-#include "PaperFlipbook.h"
+
 #include "UEgiflib.h"
+
+#include "Engine/Texture2D.h"
+
 #include "IImageWrapper.h"
 #include "IImageWrapperModule.h"
-#include "Engine/Texture2D.h"
+
+#include "Misc/FeedbackContext.h"
+#include "Misc/MessageDialog.h"
+
+#include "PaperFlipbook.h"
+#include "PaperFlipbookFactory.h"
+#include "PaperFlipbookHelpers.h"
 #include "PaperImporterSettings.h"
+#include "PaperSprite.h"
+
+#include "RHIDefinitions.h"
+
+#include "SpriteEditorOnlyTypes.h"
 
 THIRD_PARTY_INCLUDES_START
 #include "giflib/lib/gif_lib_private.h"
@@ -14,23 +28,16 @@ THIRD_PARTY_INCLUDES_END
 
 #define LOCTEXT_NAMESPACE "GifFactories"
 
-
 TArray<uint8> UGifFactory::GifBytes;
 int32 UGifFactory::GifIndex;
 
 UGifFactory::UGifFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	SupportedClass = UTexture2D::StaticClass();
-
-	Formats.Empty();
-	Formats.Add(TEXT("gif;Texture"));
-	/*
 	SupportedClass = UPaperFlipbook::StaticClass();
 
 	Formats.Empty();
 	Formats.Add(TEXT("gif;Flipbook"));
-	*/
 }
 
 UObject* UGifFactory::FactoryCreateBinary
@@ -51,23 +58,40 @@ UObject* UGifFactory::FactoryCreateBinary
 	GifBytes.AddUninitialized(Length);	// Allocate Empty Space
 	FMemory::Memcpy(GifBytes.GetData(), Buffer, Length);
 
-	UTexture2D* Texture = DecodeGifData(Buffer, Length, InParent, Name, Flags);
-
-
-	return Texture;
-}
-
-UTexture2D* UGifFactory::DecodeGifData(const void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags)
-{
-	int ErrorCode;
-
-	GifFileType* FileType = DGifOpen((void *)Data, UGifFactory::OnReadGif, &ErrorCode);
-	if (DGifSlurp(FileType) == GIF_ERROR)
+	TArray<UTexture2D*> Textures;
+	if (!DecodeGifDataToTextures(Buffer, Length, InParent, Name, Flags, Context, Type, Buffer, BufferEnd, Warn, &Textures))
 	{
+		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToTextures"));
 		return nullptr;
 	}
+
+	TArray<UPaperSprite*> Sprites;
+	if (!GenerateSprites(InParent, Flags, Context, Warn, Textures, &Sprites))
+	{
+		UE_LOG(LogGiflib, Error, TEXT("Failed GenerateSprites"));
+		return nullptr;
+	}
+
+	UPaperFlipbook* Flipbook = CreateFlipbook(InParent, Name, Flags, Context, Warn, Sprites);
+
+	return Flipbook;
+}
+
+bool UGifFactory::DecodeGifDataToTextures(const void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8*		BufferEnd, FFeedbackContext* Warn, TArray<UTexture2D*>* OutTextures)
+{
+	int ErrorCode;
+	GifFileType* FileType = DGifOpen((void *)Data, UGifFactory::OnReadGif, &ErrorCode);
+	if (FileType == nullptr)
+	{
+		UE_LOG(LogGiflib, Error, TEXT("DGifOpen Failed : %d"), ErrorCode);
+		return false;
+	}
+	if (DGifSlurp(FileType) == GIF_ERROR)
+	{
+		return false;
+	}
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
-	UTexture2D* Texture = nullptr;
+
 	for (int i = 0; i < FileType->ImageCount; i++)
 	{
 		SavedImage& Frame = FileType->SavedImages[i];
@@ -76,7 +100,7 @@ UTexture2D* UGifFactory::DecodeGifData(const void* Data, int32 Size, UObject* In
 		Image.AddUninitialized(Frame.ImageDesc.Width * Frame.ImageDesc.Height * 4);
 
 		bool HasGCB = false;
-		GraphicsControlBlock GCB;
+		GraphicsControlBlock GCB = { 0, false, 0, -1 };
 		for (int ext_i = 0; ext_i < Frame.ExtensionBlockCount; ext_i++)
 		{
 			if (GIF_OK == DGifExtensionToGCB(Frame.ExtensionBlocks[ext_i].ByteCount, Frame.ExtensionBlocks[ext_i].Bytes, &GCB))
@@ -139,44 +163,88 @@ UTexture2D* UGifFactory::DecodeGifData(const void* Data, int32 Size, UObject* In
 		if (BmpImageWrapper.IsValid() && BmpImageWrapper->SetRaw(Image.GetData(), Frame.ImageDesc.Width * Frame.ImageDesc.Height * 4, Frame.ImageDesc.Width, Frame.ImageDesc.Height, ERGBFormat::BGRA, 24))
 		{
 			// Check the resolution of the imported texture to ensure validity
-			/*
-			if (!IsImportResolutionValid(BmpImageWrapper->GetWidth(), BmpImageWrapper->GetHeight(), bAllowNonPowerOfTwo, Warn))
+			if (!IsImportResolutionValid(BmpImageWrapper->GetWidth(), BmpImageWrapper->GetHeight(), /*bAllowNonPowerOfTwo*/ true, Warn))
 			{
 				return nullptr;
 			}
-			*/
 
-			FString NewName = FString::Printf(TEXT("%2d"), i);
-			UTexture2D* NewTexture = CreateTexture2D(InParent, *NewName, Flags);
-			if (NewTexture)
+			FString NewName = FString::Printf(TEXT("T_%s_%d"), *Name.ToString(), i);
+			UTexture2D* Texture = CreateTexture2D(InParent, *NewName, Flags);
+			if (Texture)
 			{
 				// Set texture properties.
-				NewTexture->Source.Init(
+				Texture->Source.Init(
 					BmpImageWrapper->GetWidth(),
 					BmpImageWrapper->GetHeight(),
 					/*NumSlices=*/ 1,
 					/*NumMips=*/ 1,
 					TSF_BGRA8
 				);
-				GetDefault<UPaperImporterSettings>()->ApplyTextureSettings(NewTexture);
+				GetDefault<UPaperImporterSettings>()->ApplyTextureSettings(Texture);
 
 				const TArray<uint8>* RawBMP = nullptr;
 				if (BmpImageWrapper->GetRaw(BmpImageWrapper->GetFormat(), BmpImageWrapper->GetBitDepth(), RawBMP))
 				{
-					uint8* MipData = NewTexture->Source.LockMip(0);
+					uint8* MipData = Texture->Source.LockMip(0);
 					FMemory::Memcpy(MipData, RawBMP->GetData(), RawBMP->Num());
-					NewTexture->Source.UnlockMip(0);
+					Texture->Source.UnlockMip(0);
 				}
 				CleanUp();
 			}
-			Texture = NewTexture;
 			Texture->MarkPackageDirty();
 			Texture->PostEditChange();
-			//return Texture;
+			if (OutTextures) OutTextures->Add(Texture);
 		}
 	}
 
-	return Texture;
+	return true;
+}
+
+bool UGifFactory::GenerateSprites(UObject* InParent, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, const TArray<UTexture2D*>& InTextures, TArray<UPaperSprite*>* OutSprites)
+{
+	bool OutGenerated = false;
+
+	for (UTexture2D* Texture : InTextures)
+	{
+		if (Texture != nullptr)
+		{
+			FString NewName = Texture->GetName();
+			NewName = NewName.Replace(TEXT("T_"), TEXT("S_"));
+			UPaperSprite* NewAsset = CreatePaperSprite(Texture, UPaperSprite::StaticClass(), InParent, *NewName, Flags, Context, Warn);
+
+			OutGenerated = true;
+			if (OutSprites) OutSprites->Add(NewAsset);
+		}
+	}
+
+	return OutGenerated;
+}
+
+UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, const TArray<UPaperSprite*>& AllSprites)
+{
+	if (AllSprites.Num() == 0)
+	{
+		return nullptr;
+	}
+
+	FString NewName = FString::Printf(TEXT("F_%s"), *Name.ToString());
+	
+	UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
+	for (UPaperSprite* Sprite : AllSprites)
+	{
+		if (Sprite != nullptr)
+		{
+			FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
+			KeyFrame->Sprite = Sprite;
+			KeyFrame->FrameRun = 1;
+		}
+	}
+
+	UPaperFlipbook* NewFlipBook = nullptr;
+
+	NewFlipBook = Cast<UPaperFlipbook>(FlipbookFactory->FactoryCreateNew(UPaperFlipbook::StaticClass(), InParent, *NewName, Flags, Context, Warn));
+
+	return NewFlipBook;
 }
 
 int UGifFactory::OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Length)
@@ -207,4 +275,50 @@ int UGifFactory::OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Len
 	return size;
 }
 
+UPaperSprite* UGifFactory::CreatePaperSprite(UTexture2D* InitialTexture, UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+{
+	UPaperSprite* NewSprite = NewObject<UPaperSprite>(InParent, Class, Name, Flags | RF_Transactional);
+	if (NewSprite && InitialTexture)
+	{
+		FSpriteAssetInitParameters SpriteInitParams;
+		SpriteInitParams.SetTextureAndFill(InitialTexture);
+
+		const UPaperImporterSettings* ImporterSettings = GetDefault<UPaperImporterSettings>();
+
+		ImporterSettings->ApplySettingsForSpriteInit(SpriteInitParams, ESpriteInitMaterialLightingMode::Automatic);
+		NewSprite->InitializeSprite(SpriteInitParams);
+	}
+
+	return NewSprite;
+}
+
+bool UGifFactory::IsImportResolutionValid(int32 Width, int32 Height, bool bAllowNonPowerOfTwo, FFeedbackContext* Warn)
+{
+	// Calculate the maximum supported resolution utilizing the global max texture mip count
+	// (Note, have to subtract 1 because 1x1 is a valid mip-size; this means a GMaxTextureMipCount of 4 means a max resolution of 8x8, not 2^4 = 16x16)
+	const int32 MaximumSupportedResolution = 1 << (MAX_TEXTURE_MIP_COUNT - 1);
+
+	bool bValid = true;
+
+	// Check if the texture is above the supported resolution and prompt the user if they wish to continue if it is
+	if (Width > MaximumSupportedResolution || Height > MaximumSupportedResolution)
+	{
+		if (EAppReturnType::Yes != FMessageDialog::Open(EAppMsgType::YesNo, FText::Format(
+			NSLOCTEXT("UnrealEd", "Warning_LargeTextureImport", "Attempting to import {0} x {1} texture, proceed?\nLargest supported texture size: {2} x {3}"),
+			FText::AsNumber(Width), FText::AsNumber(Height), FText::AsNumber(MaximumSupportedResolution), FText::AsNumber(MaximumSupportedResolution))))
+		{
+			bValid = false;
+		}
+	}
+
+	const bool bIsPowerOfTwo = FMath::IsPowerOfTwo(Width) && FMath::IsPowerOfTwo(Height);
+	// Check if the texture dimensions are powers of two
+	if (!bAllowNonPowerOfTwo && !bIsPowerOfTwo)
+	{
+		Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString());
+		bValid = false;
+	}
+
+	return bValid;
+}
 #undef LOCTEXT_NAMESPACE

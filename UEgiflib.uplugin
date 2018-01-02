@@ -16,7 +16,7 @@
   "Modules": [
     {
       "Name": "UEgiflib",
-      "Type": "Developer",
+      "Type": "Editor",
       "LoadingPhase": "Default"
     }
   ],
