@@ -58,19 +58,21 @@ UObject* UGifFactory::FactoryCreateBinary
 	GifBytes.AddUninitialized(Length);	// Allocate Empty Space
 	FMemory::Memcpy(GifBytes.GetData(), Buffer, Length);
 
+	UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
+
 	TArray<UPaperSprite*> Sprites;
-	if (!DecodeGifDataToSprites(Buffer, Length, InParent, Name, Flags, Context, Type, Buffer, BufferEnd, Warn, &Sprites))
+	if (!DecodeGifDataToSprites(Buffer, Length, InParent, Name, Flags, Context, Type, Buffer, BufferEnd, Warn, FlipbookFactory))
 	{
 		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSprites"));
 		return nullptr;
 	}
 
-	UPaperFlipbook* Flipbook = CreateFlipbook(InParent, Name, Flags, Context, Warn, Sprites);
+	UPaperFlipbook* Flipbook = CreateFlipbook(InParent, Name, Flags, Context, Warn, FlipbookFactory);
 
 	return Flipbook;
 }
 
-bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8*		BufferEnd, FFeedbackContext* Warn, TArray<class UPaperSprite*>* OutSprites)
+bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8*		BufferEnd, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
 {
 	int ErrorCode;
 	GifFileType* FileType = DGifOpen((void *)Data, UGifFactory::OnReadGif, &ErrorCode);
@@ -84,6 +86,8 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 		return false;
 	}
 
+	UTexture2D* LastTexture = nullptr;
+	int LastDisposalMode = 0;
 	for (int i = 0; i < FileType->ImageCount; i++)
 	{
 		SavedImage& Frame = FileType->SavedImages[i];
@@ -107,18 +111,61 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 				HasGCB = true;
 			}
 		}
-		ColorMapObject* CMO = Frame.ImageDesc.ColorMap ? Frame.ImageDesc.ColorMap : FileType->SColorMap;
-		GifColorType* ColorMap = CMO->Colors;
-		uint32 Raster_i = 0;
 
-		if (Frame.ImageDesc.Interlace)
+		UE_LOG(LogGiflib, Log, TEXT("Delay: %d"), GCB.DelayTime);
+		UTexture2D* NewTexture = nullptr;
+		switch (LastDisposalMode)
 		{
-			int InterlacedOffset[] = { 0, 4, 2, 1 };
-			int InterlacedJumps[] = { 8, 8, 4, 2 };
-
-			for (int pass_i = 0; pass_i < 4; pass_i++)
+		case DISPOSE_DO_NOT:
+			if (LastTexture != nullptr && Frame.RasterBits[0] == '\0')
 			{
-				for (int height_i = InterlacedOffset[pass_i]; height_i < ImageHeight; height_i += InterlacedJumps[pass_i])
+				NewTexture = LastTexture;
+			}
+			break;
+		case DISPOSE_BACKGROUND:
+			// TODO:
+			break;
+		case DISPOSE_PREVIOUS:
+			// TODO:
+			break;
+		}
+
+		FString SourceName = FString::Printf(TEXT("%s_%d"), *Name.ToString(), i);
+		if (NewTexture == nullptr)
+		{
+			ColorMapObject* CMO = Frame.ImageDesc.ColorMap ? Frame.ImageDesc.ColorMap : FileType->SColorMap;
+			GifColorType* ColorMap = CMO->Colors;
+			uint32 Raster_i = 0;
+
+			if (Frame.ImageDesc.Interlace)
+			{
+				int InterlacedOffset[] = { 0, 4, 2, 1 };
+				int InterlacedJumps[] = { 8, 8, 4, 2 };
+
+				for (int pass_i = 0; pass_i < 4; pass_i++)
+				{
+					for (int height_i = InterlacedOffset[pass_i]; height_i < ImageHeight; height_i += InterlacedJumps[pass_i])
+					{
+						for (int width_i = 0; width_i < ImageWidth; width_i++)
+						{
+							unsigned char& Bit = Frame.RasterBits[Raster_i];
+							if (Bit >= CMO->ColorCount)
+							{
+								break;
+							}
+							Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
+							Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
+							Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
+							Image[Raster_i * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
+
+							Raster_i++;
+						}
+					}
+				}
+			}
+			else
+			{
+				for (int height_i = 0; height_i < ImageHeight; height_i++)
 				{
 					for (int width_i = 0; width_i < ImageWidth; width_i++)
 					{
@@ -136,34 +183,25 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 					}
 				}
 			}
+
+			NewTexture = CreateTextureFromRawData(Image, ImageWidth, ImageHeight, InParent, *SourceName, Flags, Context, Warn);
+		}
+		UPaperSprite* NewSprite = CreatePaperSprite(NewTexture, ImageLeft, ImageTop, UPaperSprite::StaticClass(), InParent, *SourceName, Flags, Context, Warn);
+
+		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
+		KeyFrame->Sprite = NewSprite;
+		KeyFrame->FrameRun = HasGCB ? (GCB.DelayTime) : 1;
+
+		// Update Last Image Infos
+		LastTexture = NewTexture;
+		if (HasGCB)
+		{
+			LastDisposalMode = GCB.DisposalMode;
 		}
 		else
 		{
-			for (int height_i = 0; height_i < ImageHeight; height_i++)
-			{
-				for (int width_i = 0; width_i < ImageWidth; width_i++)
-				{
-					unsigned char& Bit = Frame.RasterBits[Raster_i];
-					if (Bit >= CMO->ColorCount)
-					{
-						break;
-					}
-					Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
-					Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
-					Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
-					Image[Raster_i * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
-
-					Raster_i++;
-				}
-			}
+			LastDisposalMode = DISPOSAL_UNSPECIFIED;
 		}
-
-		FString SourceName = FString::Printf(TEXT("%s_%d"), *Name.ToString(), i);
-		UTexture2D* NewTexture = CreateTextureFromRawData(Image, ImageWidth, ImageHeight, InParent, *SourceName, Flags, Context, Warn);
-
-		UPaperSprite* NewSprite = CreatePaperSprite(NewTexture, ImageLeft, ImageTop, UPaperSprite::StaticClass(), InParent, *SourceName, Flags, Context, Warn);
-
-		if (OutSprites) OutSprites->Add(NewSprite);
 	}
 
 	return true;
@@ -237,25 +275,9 @@ UPaperSprite* UGifFactory::CreatePaperSprite(class UTexture2D* InitialTexture, c
 	return NewSprite;
 }
 
-UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, const TArray<UPaperSprite*>& AllSprites)
+UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
 {
-	if (AllSprites.Num() == 0)
-	{
-		return nullptr;
-	}
-
 	FString NewName = FString::Printf(TEXT("F_%s"), *Name.ToString());
-	
-	UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
-	for (UPaperSprite* Sprite : AllSprites)
-	{
-		if (Sprite != nullptr)
-		{
-			FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
-			KeyFrame->Sprite = Sprite;
-			KeyFrame->FrameRun = 6;
-		}
-	}
 
 	UPaperFlipbook* NewFlipBook = nullptr;
 
