@@ -4,6 +4,12 @@
 
 #include "UEgiflib.h"
 
+#include "AssetToolsModule.h"
+#include "AssetRegistryModule.h"
+
+#include "ObjectTools.h"
+#include "PackageTools.h"
+
 #include "Engine/Texture2D.h"
 
 #include "IImageWrapper.h"
@@ -189,7 +195,7 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 		}
 
 		FVector2D Pivot((CanvasWidth / 2) - ImageLeft, (CanvasHeight / 2) - ImageTop);
-		UPaperSprite* NewSprite = CreatePaperSprite(NewTexture, Pivot, UPaperSprite::StaticClass(), InParent, *SourceName, Flags, Context, Warn);
+		UPaperSprite* NewSprite = CreatePaperSprite(NewTexture, Pivot, InParent, *SourceName, Flags, Context, Warn);
 
 		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
 		KeyFrame->Sprite = NewSprite;
@@ -229,8 +235,31 @@ UTexture2D* UGifFactory::CreateTextureFromRawData(const TArray<uint8>& InRawData
 		return nullptr;
 	}
 
-	FString NewName = FString::Printf(TEXT("T_%s"), *Name.ToString());
-	UTexture2D* Texture = CreateTexture2D(InParent, *NewName, Flags);
+
+	FString TextureName = ObjectTools::SanitizeObjectName(FString::Printf(TEXT("T_%s"), *Name.ToString()));
+
+	FString BasePackageName = FPackageName::GetLongPackagePath(InParent->GetName()) / TextureName;
+	BasePackageName = PackageTools::SanitizePackageName(BasePackageName);
+
+
+	FString ObjectPath = BasePackageName + TEXT(".") + TextureName;
+	UTexture* ExistingTexture = LoadObject<UTexture>(NULL, *ObjectPath, nullptr, LOAD_Quiet | LOAD_NoWarn);
+
+	UPackage* TexturePackage = nullptr;
+	if (ExistingTexture == nullptr)
+	{
+		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+		FString FinalPackageName;
+		AssetToolsModule.Get().CreateUniqueAssetName(BasePackageName, TEXT(""), FinalPackageName, TextureName);
+
+		TexturePackage = CreatePackage(NULL, *FinalPackageName);
+	}
+	else
+	{
+		TexturePackage = ExistingTexture->GetOutermost();
+	}
+
+	UTexture2D* Texture = CreateTexture2D(TexturePackage, *TextureName, Flags);
 	if (Texture)
 	{
 		// Set texture properties.
@@ -250,17 +279,41 @@ UTexture2D* UGifFactory::CreateTextureFromRawData(const TArray<uint8>& InRawData
 			FMemory::Memcpy(MipData, RawBMP->GetData(), RawBMP->Num());
 			Texture->Source.UnlockMip(0);
 		}
+		TexturePackage->SetDirtyFlag(true);
 		CleanUp();
 	}
+	FAssetRegistryModule::AssetCreated(Texture);
 	Texture->MarkPackageDirty();
 	Texture->PostEditChange();
 
 	return Texture;
 }
 
-UPaperSprite* UGifFactory::CreatePaperSprite(class UTexture2D* InitialTexture, const FVector2D& Pivot, UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn)
+UPaperSprite* UGifFactory::CreatePaperSprite(class UTexture2D* InitialTexture, const FVector2D& Pivot, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn)
 {
-	UPaperSprite* NewSprite = NewObject<UPaperSprite>(InParent, Class, Name, Flags | RF_Transactional);
+	FString SpriteName = ObjectTools::SanitizeObjectName(FString::Printf(TEXT("S_%s"), *Name.ToString()));
+
+	FString BasePackageName = FPackageName::GetLongPackagePath(InParent->GetName()) / SpriteName;
+	BasePackageName = PackageTools::SanitizePackageName(BasePackageName);
+
+	FString ObjectPath = BasePackageName + TEXT(".") + SpriteName;
+	UPaperSprite* ExistingSprite = LoadObject<UPaperSprite>(NULL, *ObjectPath, nullptr, LOAD_Quiet | LOAD_NoWarn);
+
+	UPackage* SpritePackage = nullptr;
+	if (SpritePackage == nullptr)
+	{
+		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+		FString FinalPackageName;
+		AssetToolsModule.Get().CreateUniqueAssetName(BasePackageName, TEXT(""), FinalPackageName, SpriteName);
+
+		SpritePackage = CreatePackage(NULL, *FinalPackageName);
+	}
+	else
+	{
+		SpritePackage = ExistingSprite->GetOutermost();
+	}
+
+	UPaperSprite* NewSprite = NewObject<UPaperSprite>(SpritePackage, UPaperSprite::StaticClass(), *SpriteName, Flags | RF_Transactional);
 	if (NewSprite && InitialTexture)
 	{
 		FSpriteAssetInitParameters SpriteInitParams;
@@ -273,6 +326,12 @@ UPaperSprite* UGifFactory::CreatePaperSprite(class UTexture2D* InitialTexture, c
 		NewSprite->InitializeSprite(SpriteInitParams);
 
 		NewSprite->SetPivotMode(ESpritePivotMode::Custom, Pivot);
+
+		SpritePackage->SetDirtyFlag(true);
+
+		FAssetRegistryModule::AssetCreated(NewSprite);
+		NewSprite->MarkPackageDirty();
+		NewSprite->PostEditChange();
 	}
 
 	return NewSprite;
@@ -280,11 +339,10 @@ UPaperSprite* UGifFactory::CreatePaperSprite(class UTexture2D* InitialTexture, c
 
 UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
 {
-	FString NewName = FString::Printf(TEXT("F_%s"), *Name.ToString());
-
+	FString FlipbookName = FString::Printf(TEXT("%s"), *Name.ToString());
 	UPaperFlipbook* NewFlipBook = nullptr;
 
-	NewFlipBook = Cast<UPaperFlipbook>(FlipbookFactory->FactoryCreateNew(UPaperFlipbook::StaticClass(), InParent, *NewName, Flags, Context, Warn));
+	NewFlipBook = Cast<UPaperFlipbook>(FlipbookFactory->FactoryCreateNew(UPaperFlipbook::StaticClass(), InParent, *FlipbookName, Flags, Context, Warn));
 
 	return NewFlipBook;
 }
