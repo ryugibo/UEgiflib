@@ -29,7 +29,7 @@ private:
 
 	class UTexture2D* CreateTextureFromRawData(const TArray<uint8>& InRawData, const GifWord& InWidth, const GifWord& InHeight, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
 
-	class UPaperSprite* CreatePaperSprite(class UTexture2D* InitialTexture, const FVector2D& Pivot, UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
+	class UPaperSprite* CreatePaperSprite(class UTexture2D* InitialTexture, const FVector2D& Pivot, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
 
 	class UPaperFlipbook* CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
 
