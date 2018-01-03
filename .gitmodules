@@ -1,3 +1,4 @@
 [submodule "Source/ThirdParty/Giflib/giflib"]
 	path = Source/ThirdParty/Giflib/giflib
 	url = https://github.com/aseprite/giflib.git
+	ignore = dirty
