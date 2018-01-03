@@ -1,21 +1,6 @@
 # GIFLIB for UE4 Plugin.
 
-## In Develop.
-
-### TODO List
-
-- [x] Giflib library integration.
-- [x] First frame of .gif import to Texture. [TEST]
-- [x] Import all frame to each texture.
-- [x] Generate Sprite and SpriteFlipbook.
-- [ ] Settings
-  - [x] Sprite Pivot
-  - [ ] Apply frame speed from gif delay data
-- [ ] Texture Atlas
-  - [ ] Import frames to a texture be merged.
-  - [ ] Control size of one texture.
-
-
+## In Develop...
 
 ### How to build giflib.
 
