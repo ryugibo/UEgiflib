@@ -39,6 +39,5 @@ private:
 	static bool IsImportResolutionValid(int32 Width, int32 Height, bool bAllowNonPowerOfTwo, class FFeedbackContext* Warn);
 	// * End - Redfine private functions of UTextureFactory
 
-	static TArray<uint8> GifBytes;
 	static int32 GifIndex;
 };
