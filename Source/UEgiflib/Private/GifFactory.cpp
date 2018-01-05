@@ -34,7 +34,6 @@ THIRD_PARTY_INCLUDES_END
 
 #define LOCTEXT_NAMESPACE "GifFactories"
 
-TArray<uint8> UGifFactory::GifBytes;
 int32 UGifFactory::GifIndex;
 
 UGifFactory::UGifFactory(const FObjectInitializer& ObjectInitializer)
@@ -61,8 +60,6 @@ UObject* UGifFactory::FactoryCreateBinary
 {
 	const int32 Length = BufferEnd - Buffer;
 	GifIndex = 0;
-	GifBytes.AddUninitialized(Length);	// Allocate Empty Space
-	FMemory::Memcpy(GifBytes.GetData(), Buffer, Length);
 
 	UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
 
@@ -89,6 +86,7 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 	}
 	if (DGifSlurp(FileType) == GIF_ERROR)
 	{
+		UE_LOG(LogGiflib, Error, TEXT("DGifSlurp Failed"));
 		return false;
 	}
 
@@ -213,6 +211,11 @@ bool UGifFactory::DecodeGifDataToSprites(const void* Data, int32 Size, UObject* 
 		}
 	}
 
+	if (GIF_OK != DGifCloseFile(FileType, &ErrorCode))
+	{
+		UE_LOG(LogGiflib, Error, TEXT("DGifCloseFile Failed : %d"), ErrorCode);
+		return false;
+	}
 	return true;
 }
 
@@ -349,15 +352,7 @@ UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObje
 
 int UGifFactory::OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Length)
 {
-	if (ByteType == nullptr)
-	{
-		return 0;
-	}
-	if (GifIndex >= GifBytes.Num())
-	{
-		return 0;
-	}
-	if (Length >= GifBytes.Num())
+	if (FileType == nullptr || ByteType == nullptr)
 	{
 		return 0;
 	}
@@ -365,9 +360,9 @@ int UGifFactory::OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Len
 	const int32 TargetIndex = GifIndex + Length;
 
 	int32 size = 0;
-	for (int i = 0; i < GifBytes.Num() && i < Length; i++)
+	for (int i = 0; i < Length; i++)
 	{
-		ByteType[i] = GifBytes[GifIndex + i];
+		ByteType[i] = ((uint8*)FileType->UserData)[GifIndex + i];
 		size++;
 	}
 	ByteType[size] = '\0';
