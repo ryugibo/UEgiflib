@@ -101,16 +101,22 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 	const GifWord CanvasWidth = FileType->SWidth;
 	const GifWord CanvasHeight = FileType->SHeight;
 
+	int32 RowCount = 0;
+	float RowFloat = FMath::Sqrt(ImageCount);
+	RowCount = ((RowFloat - (int32)RowFloat) > 0) ? (RowFloat + 1) : (RowFloat);
 
-	const uint32 TextureSizeX = CanvasWidth * ImageCount;// FMath::RoundUpToPowerOfTwo((CanvasWidth * ImageCount) / 2);
-	const uint32 TextureSizeY = CanvasHeight; // TextureSizeX;
+	const uint32 TextureSizeX = CanvasWidth * RowCount;
+	const uint32 TextureSizeY = CanvasHeight * RowCount;
 
 	TArray<uint8> FullImage;
 	FullImage.AddUninitialized(TextureSizeX * TextureSizeY * 4);
 
-	TArray<uint8> LastImage;
 	int LastDisposalMode = 0;
 
+	TArray<FSpriteInfo> SpriteInfos;
+	SpriteInfos.AddUninitialized(ImageCount);
+
+	FSpriteInfo LastSpriteInfo;
 	for (int image_i = 0; image_i < ImageCount; image_i++)
 	{
 		SavedImage& Frame = FileType->SavedImages[image_i];
@@ -137,9 +143,9 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 		switch (LastDisposalMode)
 		{
 		case DISPOSE_DO_NOT:
-			if (LastImage.Num() > 0 && Frame.RasterBits[0] == '\0')
+			if (image_i != 0 && Frame.RasterBits[0] == '\0')
 			{
-				CurrentImage = LastImage;
+				SpriteInfos[image_i] = LastSpriteInfo;
 				bIsImageExist = true;
 			}
 			break;
@@ -157,6 +163,7 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 			ColorMapObject* CMO = Frame.ImageDesc.ColorMap ? Frame.ImageDesc.ColorMap : FileType->SColorMap;
 			GifColorType* ColorMap = CMO->Colors;
 			uint32 Raster_i = 0;
+			uint32 Blank_i = 0;
 
 			if (Frame.ImageDesc.Interlace)
 			{
@@ -167,27 +174,17 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 				{
 					for (int height_i = InterlacedOffset[pass_i]; height_i < CanvasHeight; height_i += InterlacedJumps[pass_i])
 					{
-						if (height_i < ImageTop || height_i > ImageHeight)
-						{
-							CurrentImage[Raster_i * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
-							CurrentImage[Raster_i * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
-							CurrentImage[Raster_i * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
-							CurrentImage[Raster_i * 4 + 3] = (HasGCB && (int)FileType->SBackGroundColor == GCB.TransparentColor) ? 0 : 255;
-
-							Raster_i++;
-
-							continue;
-						}
 						for (int width_i = 0; width_i < CanvasWidth; width_i++)
 						{
-							if (width_i < ImageLeft || width_i > ImageWidth)
+							if ((width_i < ImageLeft || height_i < ImageTop) ||
+								(width_i >= (ImageLeft + ImageWidth) || height_i >= (ImageTop + ImageHeight)))
 							{
-								CurrentImage[Raster_i * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
-								CurrentImage[Raster_i * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
-								CurrentImage[Raster_i * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
-								CurrentImage[Raster_i * 4 + 3] = (HasGCB && (int)FileType->SBackGroundColor == GCB.TransparentColor) ? 0 : 255;
+								CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
+								CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
+								CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
+								CurrentImage[(Raster_i + Blank_i) * 4 + 3] = (HasGCB && (int)FileType->SBackGroundColor == GCB.TransparentColor) ? 0 : 255;
 
-								Raster_i++;
+								Blank_i++;
 
 								continue;
 							}
@@ -196,10 +193,10 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 							{
 								break;
 							}
-							CurrentImage[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
-							CurrentImage[Raster_i * 4 + 1] = ColorMap[Bit].Green;
-							CurrentImage[Raster_i * 4 + 2] = ColorMap[Bit].Red;
-							CurrentImage[Raster_i * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
+							CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[Bit].Blue;
+							CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[Bit].Green;
+							CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[Bit].Red;
+							CurrentImage[(Raster_i + Blank_i) * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
 
 							Raster_i++;
 						}
@@ -210,27 +207,17 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 			{
 				for (int height_i = 0; height_i < CanvasHeight; height_i++)
 				{
-					if (height_i < ImageTop || height_i > ImageHeight)
-					{
-						CurrentImage[Raster_i * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
-						CurrentImage[Raster_i * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
-						CurrentImage[Raster_i * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
-						CurrentImage[Raster_i * 4 + 3] = (HasGCB && (int)FileType->SBackGroundColor == GCB.TransparentColor) ? 0 : 255;
-
-						Raster_i++;
-
-						continue;
-					}
 					for (int width_i = 0; width_i < CanvasWidth; width_i++)
 					{
-						if (width_i < ImageLeft || width_i > ImageWidth)
+						if ((width_i < ImageLeft || height_i < ImageTop) || 
+							(width_i >= (ImageLeft + ImageWidth) || height_i >= (ImageTop + ImageHeight)))
 						{
-							CurrentImage[Raster_i * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
-							CurrentImage[Raster_i * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
-							CurrentImage[Raster_i * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
-							CurrentImage[Raster_i * 4 + 3] = (HasGCB && (int)FileType->SBackGroundColor == GCB.TransparentColor) ? 0 : 255;
+							CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
+							CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
+							CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
+							CurrentImage[(Raster_i + Blank_i) * 4 + 3] = (HasGCB && (int)FileType->SBackGroundColor == GCB.TransparentColor) ? 0 : 255;
 
-							Raster_i++;
+							Blank_i++;
 
 							continue;
 						}
@@ -239,34 +226,37 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 						{
 							break;
 						}
-						CurrentImage[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
-						CurrentImage[Raster_i * 4 + 1] = ColorMap[Bit].Green;
-						CurrentImage[Raster_i * 4 + 2] = ColorMap[Bit].Red;
-						CurrentImage[Raster_i * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
+						CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[Bit].Blue;
+						CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[Bit].Green;
+						CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[Bit].Red;
+						CurrentImage[(Raster_i + Blank_i) * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
 
 						Raster_i++;
 					}
 				}
 			}
-		}
 
-		for (int width_i = 0; width_i < CanvasWidth; width_i++)
-		{
+			FIntPoint Offset((image_i % RowCount) * CanvasWidth, (image_i / RowCount) * CanvasHeight);
 			for (int height_i = 0; height_i < CanvasHeight; height_i++)
 			{
-				uint32 To = height_i * (FileType->ImageCount * CanvasWidth) + width_i + (image_i * CanvasWidth);
-				uint32 From = height_i * CanvasWidth + width_i;
-				To *= 4;
-				From *= 4;
+				for (int width_i = 0; width_i < CanvasWidth; width_i++)
+				{
+					const uint32 From = 4 * (height_i * CanvasWidth + width_i);
 
-				FullImage[To + 0] = CurrentImage[From + 0];
-				FullImage[To + 1] = CurrentImage[From + 1];
-				FullImage[To + 2] = CurrentImage[From + 2];
-				FullImage[To + 3] = CurrentImage[From + 3];
+					uint32 To = (Offset.X + width_i + ((Offset.Y + height_i) * TextureSizeX)) * 4;
+
+					FullImage[To + 0] = CurrentImage[From + 0];
+					FullImage[To + 1] = CurrentImage[From + 1];
+					FullImage[To + 2] = CurrentImage[From + 2];
+					FullImage[To + 3] = CurrentImage[From + 3];
+				}
 			}
+
+			SpriteInfos[image_i].Offset = Offset;
+			SpriteInfos[image_i].Dimension = FIntPoint(CanvasWidth, CanvasHeight);
 		}
 
-		LastImage = CurrentImage;
+		LastSpriteInfo = SpriteInfos[image_i];
 
 		if (HasGCB)
 		{
@@ -280,10 +270,11 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 
 	UTexture2D* ResultTexture = CreateTextureFromRawData(FullImage, TextureSizeX, TextureSizeY, InParent, Name, Flags, Context, Warn);
 
-	for (int image_i = 0; image_i < ImageCount; image_i++)
+	for (int32 image_i = 0; image_i < SpriteInfos.Num(); image_i++)
 	{
+		FSpriteInfo Info = SpriteInfos[image_i];
 		FString SourceName = FString::Printf(TEXT("%s_%d"), *Name.ToString(), image_i);
-		UPaperSprite* NewSprite = CreatePaperSprite(InParent, *SourceName, Flags, Context, Warn, ResultTexture, FIntPoint(CanvasWidth * image_i, 0), FIntPoint(CanvasWidth, CanvasHeight));
+		UPaperSprite* NewSprite = CreatePaperSprite(InParent, *SourceName, Flags, Context, Warn, ResultTexture, Info.Offset, Info.Dimension);
 
 		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
 		KeyFrame->Sprite = NewSprite;

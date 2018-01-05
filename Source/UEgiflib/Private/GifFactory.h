@@ -11,6 +11,13 @@ THIRD_PARTY_INCLUDES_END
 
 #include "GifFactory.generated.h"
 
+struct FSpriteInfo
+{
+	FIntPoint Offset;
+
+	FIntPoint Dimension;
+};
+
 /**
  * 
  */
