@@ -25,11 +25,13 @@ public:
 
 private:
 
-	bool DecodeGifDataToSprites(const void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
+	bool DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
+
+	bool DecodeGifDataToSprites(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
 
 	class UTexture2D* CreateTextureFromRawData(const TArray<uint8>& InRawData, const GifWord& InWidth, const GifWord& InHeight, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
 
-	class UPaperSprite* CreatePaperSprite(class UTexture2D* InitialTexture, const FVector2D& Pivot, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
+	class UPaperSprite* CreatePaperSprite(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn, class UTexture2D* InitialTexture, const FIntPoint& InOffset = FIntPoint::ZeroValue, const FIntPoint& InDimension = FIntPoint::ZeroValue);
 
 	class UPaperFlipbook* CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
 
