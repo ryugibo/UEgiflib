@@ -32,9 +32,9 @@ public:
 
 private:
 
-	bool DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
+	bool DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
 
-	bool DecodeGifDataToSprites(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
+	bool DecodeGifDataToSprites(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
 
 	class UTexture2D* CreateTextureFromRawData(const TArray<uint8>& InRawData, const GifWord& InWidth, const GifWord& InHeight, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn);
 

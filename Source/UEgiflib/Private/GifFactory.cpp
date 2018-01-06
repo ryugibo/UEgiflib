@@ -64,13 +64,13 @@ UObject* UGifFactory::FactoryCreateBinary
 	/** Texture Packing Test */
 	UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
 
-	if (!DecodeGifDataToSpritesPackedTexture((void *)Buffer, Length, InParent, Name, Flags, Context, Type, Buffer, BufferEnd, Warn, FlipbookFactory))
+	if (!DecodeGifDataToSpritesPackedTexture((void *)Buffer, Length, InParent, Name, Flags, Context, Type, Warn, FlipbookFactory))
 	{
 		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSpritesPackedTexture"));
 		return nullptr;
 	}
 	/*
-	if (!DecodeGifDataToSprites((void *)Buffer, Length, InParent, Name, Flags, Context, Type, Buffer, BufferEnd, Warn, FlipbookFactory))
+	if (!DecodeGifDataToSprites((void *)Buffer, Length, InParent, Name, Flags, Context, Type, Warn, FlipbookFactory))
 	{
 		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSprites"));
 		return nullptr;
@@ -81,7 +81,7 @@ UObject* UGifFactory::FactoryCreateBinary
 	return Flipbook;
 }
 
-bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
+bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
 {
 	int ErrorCode;
 	GifFileType* FileType = DGifOpen((void *)Data, UGifFactory::OnReadGif, &ErrorCode);
@@ -290,7 +290,7 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 	return true;
 }
 
-bool UGifFactory::DecodeGifDataToSprites(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8*		BufferEnd, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
+bool UGifFactory::DecodeGifDataToSprites(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
 {
 	int ErrorCode;
 	GifFileType* FileType = DGifOpen((void *)Data, UGifFactory::OnReadGif, &ErrorCode);
