@@ -16,6 +16,8 @@ struct FSpriteInfo
 	FIntPoint Offset;
 
 	FIntPoint Dimension;
+
+	int32 Frame;
 };
 
 /**
