@@ -254,6 +254,7 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 
 			SpriteInfos[image_i].Offset = Offset;
 			SpriteInfos[image_i].Dimension = FIntPoint(CanvasWidth, CanvasHeight);
+			SpriteInfos[image_i].Frame = HasGCB ? (GCB.DelayTime) : 1;
 		}
 
 		LastSpriteInfo = SpriteInfos[image_i];
@@ -278,7 +279,7 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 
 		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
 		KeyFrame->Sprite = NewSprite;
-		KeyFrame->FrameRun = 1;//HasGCB ? (GCB.DelayTime) : 1;
+		KeyFrame->FrameRun = Info.Frame;
 	}
 
 	if (GIF_OK != DGifCloseFile(FileType, &ErrorCode))
@@ -410,7 +411,7 @@ bool UGifFactory::DecodeGifDataToSprites(void* Data, int32 Size, UObject* InPare
 
 		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
 		KeyFrame->Sprite = NewSprite;
-		KeyFrame->FrameRun = 1;//HasGCB ? (GCB.DelayTime) : 1;
+		KeyFrame->FrameRun = HasGCB ? (GCB.DelayTime) : 1;
 
 		// Update Last Image Infos
 		LastTexture = NewTexture;
@@ -556,11 +557,14 @@ UPaperSprite* UGifFactory::CreatePaperSprite(UObject* InParent, FName Name, EObj
 UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
 {
 	FString FlipbookName = FString::Printf(TEXT("%s"), *Name.ToString());
-	UPaperFlipbook* NewFlipBook = nullptr;
+	UPaperFlipbook* NewFlipbook = nullptr;
 
-	NewFlipBook = Cast<UPaperFlipbook>(FlipbookFactory->FactoryCreateNew(UPaperFlipbook::StaticClass(), InParent, *FlipbookName, Flags, Context, Warn));
+	NewFlipbook = Cast<UPaperFlipbook>(FlipbookFactory->FactoryCreateNew(UPaperFlipbook::StaticClass(), InParent, *FlipbookName, Flags, Context, Warn));
 
-	return NewFlipBook;
+	FScopedFlipbookMutator EditFlipbook(NewFlipbook);
+	EditFlipbook.FramesPerSecond = 0.01f;
+
+	return NewFlipbook;
 }
 
 int UGifFactory::OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Length)
