@@ -34,6 +34,8 @@ public:
 
 private:
 
+	bool FactoryCanImport(const FString& Filename) override;
+
 	bool DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);
 
 	bool DecodeGifDataToSprites(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, class FFeedbackContext* Warn, class UPaperFlipbookFactory* FlipbookFactory);

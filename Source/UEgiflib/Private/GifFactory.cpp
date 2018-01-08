@@ -16,6 +16,7 @@
 #include "IImageWrapperModule.h"
 
 #include "Misc/FeedbackContext.h"
+#include "Misc/FileHelper.h"
 #include "Misc/MessageDialog.h"
 
 #include "PaperFlipbook.h"
@@ -79,6 +80,17 @@ UObject* UGifFactory::FactoryCreateBinary
 	UPaperFlipbook* Flipbook = CreateFlipbook(InParent, Name, Flags, Context, Warn, FlipbookFactory);
 
 	return Flipbook;
+}
+
+bool UGifFactory::FactoryCanImport(const FString& Filename)
+{
+	FString FileContent;
+	if (FFileHelper::LoadFileToString(/*out*/ FileContent, *Filename))
+	{
+		return true;
+	}
+
+	return false;
 }
 
 bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
