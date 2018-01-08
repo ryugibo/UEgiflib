@@ -562,7 +562,7 @@ UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObje
 	NewFlipbook = Cast<UPaperFlipbook>(FlipbookFactory->FactoryCreateNew(UPaperFlipbook::StaticClass(), InParent, *FlipbookName, Flags, Context, Warn));
 
 	FScopedFlipbookMutator EditFlipbook(NewFlipbook);
-	EditFlipbook.FramesPerSecond = 0.01f;
+	EditFlipbook.FramesPerSecond = 100.0f;
 
 	return NewFlipbook;
 }

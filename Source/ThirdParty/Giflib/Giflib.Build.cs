@@ -12,9 +12,14 @@ public class Giflib : ModuleRules
 		string GiflibDirectory = Path.Combine(ModuleDirectory, "giflib");
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			// Add the import library
 			PublicLibraryPaths.Add(Path.Combine(GiflibDirectory, "Release"));
 			PublicAdditionalLibraries.Add("giflib.lib");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			string LibraryPath = Path.Combine(GiflibDirectory, "Release");
+			PublicLibraryPaths.Add(LibraryPath);
+			PublicAdditionalLibraries.Add(LibraryPath + "/libgiflib.a");
 		}
 	}
 }
