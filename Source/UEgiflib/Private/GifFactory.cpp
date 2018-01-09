@@ -594,7 +594,6 @@ int UGifFactory::OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Len
 		ByteType[i] = ((uint8*)FileType->UserData)[GifIndex + i];
 		size++;
 	}
-	ByteType[size] = '\0';
 	GifIndex += size;
 	return size;
 }
@@ -629,3 +628,4 @@ bool UGifFactory::IsImportResolutionValid(int32 Width, int32 Height, bool bAllow
 	return bValid;
 }
 #undef LOCTEXT_NAMESPACE
+
