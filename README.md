@@ -12,6 +12,13 @@
 4. `cmake -G "Visual Studio 15 2017 Win64" ./`
 5. `cmake --build ./ --config Release`
 
+#### MacOS 10.13.2
+
+1. `git clone https://github.com/ryugibo/UEgiflib.git` in your plugin directory.
+2. `git submodule init ;git submodule update`
+3. `cd Plugins/UEgiflib/Source/ThirdParty/Giflib/giflib`
+4. `cmake -G "Xcode" ./`
+5. `cmake --build ./ --config Release`
 
 ### Reference Sites.
 
