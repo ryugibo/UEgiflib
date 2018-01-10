@@ -16,7 +16,6 @@
 #include "IImageWrapperModule.h"
 
 #include "Misc/FeedbackContext.h"
-#include "Misc/FileHelper.h"
 #include "Misc/MessageDialog.h"
 
 #include "PaperFlipbook.h"
@@ -36,6 +35,7 @@ THIRD_PARTY_INCLUDES_END
 #define LOCTEXT_NAMESPACE "GifFactories"
 
 int32 UGifFactory::GifIndex;
+int32 UGifFactory::GifLength;
 
 UGifFactory::UGifFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -59,19 +59,19 @@ UObject* UGifFactory::FactoryCreateBinary
 	FFeedbackContext*	Warn
 )
 {
-	const int32 Length = BufferEnd - Buffer;
+	GifLength = BufferEnd - Buffer;
 	GifIndex = 0;
 
 	/** Texture Packing Test */
 	UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
 
-	if (!DecodeGifDataToSpritesPackedTexture((void *)Buffer, Length, InParent, Name, Flags, Context, Type, Warn, FlipbookFactory))
+	if (!DecodeGifDataToSpritesPackedTexture(InParent, Name, Flags, Context, Type, Warn, (void *)Buffer, FlipbookFactory))
 	{
 		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSpritesPackedTexture"));
 		return nullptr;
 	}
 	/*
-	if (!DecodeGifDataToSprites((void *)Buffer, Length, InParent, Name, Flags, Context, Type, Warn, FlipbookFactory))
+	if (!DecodeGifDataToSprites(InParent, Name, Flags, Context, Type, Warn, (void *)Buffer, FlipbookFactory))
 	{
 		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSprites"));
 		return nullptr;
@@ -82,18 +82,17 @@ UObject* UGifFactory::FactoryCreateBinary
 	return Flipbook;
 }
 
-bool UGifFactory::FactoryCanImport(const FString& Filename)
-{
-	FString FileContent;
-	if (FFileHelper::LoadFileToString(/*out*/ FileContent, *Filename))
-	{
-		return true;
-	}
-
-	return false;
-}
-
-bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
+bool UGifFactory::DecodeGifDataToSpritesPackedTexture
+(
+	UObject*				InParent,
+	FName					Name,
+	EObjectFlags			Flags,
+	UObject*				Context,
+	const TCHAR*			Type,
+	FFeedbackContext*		Warn,
+	void*					Data,
+	UPaperFlipbookFactory*	FlipbookFactory
+)
 {
 	int ErrorCode;
 	GifFileType* FileType = DGifOpen((void *)Data, UGifFactory::OnReadGif, &ErrorCode);
@@ -281,7 +280,7 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 		}
 	}
 
-	UTexture2D* ResultTexture = CreateTextureFromRawData(FullImage, TextureSizeX, TextureSizeY, InParent, Name, Flags, Context, Warn);
+	UTexture2D* ResultTexture = CreateTextureFromRawData(InParent, Name, Flags, Context, Warn, FullImage, TextureSizeX, TextureSizeY);
 
 	for (int32 image_i = 0; image_i < SpriteInfos.Num(); image_i++)
 	{
@@ -303,7 +302,17 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture(void* Data, int32 Size, UO
 	return true;
 }
 
-bool UGifFactory::DecodeGifDataToSprites(void* Data, int32 Size, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
+bool UGifFactory::DecodeGifDataToSprites
+(
+	UObject*				InParent,
+	FName					Name,
+	EObjectFlags			Flags,
+	UObject*				Context,
+	const TCHAR*			Type,
+	FFeedbackContext*		Warn,
+	void*					Data,
+	UPaperFlipbookFactory*	FlipbookFactory
+)
 {
 	int ErrorCode;
 	GifFileType* FileType = DGifOpen((void *)Data, UGifFactory::OnReadGif, &ErrorCode);
@@ -416,7 +425,7 @@ bool UGifFactory::DecodeGifDataToSprites(void* Data, int32 Size, UObject* InPare
 				}
 			}
 
-			NewTexture = CreateTextureFromRawData(Image, ImageWidth, ImageHeight, InParent, *SourceName, Flags, Context, Warn);
+			NewTexture = CreateTextureFromRawData(InParent, *SourceName, Flags, Context, Warn, Image, ImageWidth, ImageHeight);
 		}
 
 		UPaperSprite* NewSprite = CreatePaperSprite(InParent, *SourceName, Flags, Context, Warn, NewTexture);
@@ -445,7 +454,17 @@ bool UGifFactory::DecodeGifDataToSprites(void* Data, int32 Size, UObject* InPare
 	return true;
 }
 
-UTexture2D* UGifFactory::CreateTextureFromRawData(const TArray<uint8>& InRawData, const int32& Width, const int32& Height, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+UTexture2D* UGifFactory::CreateTextureFromRawData
+(
+	UObject*				InParent,
+	FName					Name,
+	EObjectFlags			Flags,
+	UObject*				Context,
+	FFeedbackContext*		Warn,
+ 	const TArray<uint8>&	InRawData,
+ 	const int32&			Width,
+ 	const int32&			Height
+)
 {
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
 
@@ -518,7 +537,17 @@ UTexture2D* UGifFactory::CreateTextureFromRawData(const TArray<uint8>& InRawData
 	return Texture;
 }
 
-UPaperSprite* UGifFactory::CreatePaperSprite(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn, UTexture2D* InitialTexture, const FIntPoint& InOffset, const FIntPoint& InDimension)
+UPaperSprite* UGifFactory::CreatePaperSprite
+(
+	UObject*			InParent,
+	FName				Name,
+	EObjectFlags		Flags,
+	UObject*			Context,
+	FFeedbackContext*	Warn,
+	UTexture2D*			InitialTexture,
+	const FIntPoint&	InOffset,
+	const FIntPoint&	InDimension
+)
 {
 	FString SpriteName = ObjectTools::SanitizeObjectName(FString::Printf(TEXT("S_%s"), *Name.ToString()));
 
@@ -566,7 +595,15 @@ UPaperSprite* UGifFactory::CreatePaperSprite(UObject* InParent, FName Name, EObj
 	return NewSprite;
 }
 
-UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, UPaperFlipbookFactory* FlipbookFactory)
+UPaperFlipbook* UGifFactory::CreateFlipbook
+(
+	UObject*				InParent,
+	FName					Name,
+	EObjectFlags			Flags,
+	UObject*				Context,
+	FFeedbackContext*		Warn,
+	UPaperFlipbookFactory*	FlipbookFactory
+)
 {
 	FString FlipbookName = FString::Printf(TEXT("%s"), *Name.ToString());
 	UPaperFlipbook* NewFlipbook = nullptr;
@@ -579,26 +616,40 @@ UPaperFlipbook* UGifFactory::CreateFlipbook(UObject* InParent, FName Name, EObje
 	return NewFlipbook;
 }
 
-int UGifFactory::OnReadGif(GifFileType* FileType, GifByteType* ByteType, int Length)
+int UGifFactory::OnReadGif
+(
+	GifFileType*	FileType,
+	GifByteType*	ByteType,
+	int				Length
+)
 {
 	if (FileType == nullptr || ByteType == nullptr)
 	{
 		return 0;
 	}
 
-	const int32 TargetIndex = GifIndex + Length;
-
 	int32 size = 0;
 	for (int i = 0; i < Length; i++)
 	{
-		ByteType[i] = ((uint8*)FileType->UserData)[GifIndex + i];
+		const int32 DataIndex = GifIndex + i;
+		if (DataIndex >= GifLength)
+		{
+			break;
+		}
+		ByteType[i] = ((uint8*)FileType->UserData)[DataIndex];
 		size++;
 	}
 	GifIndex += size;
 	return size;
 }
 
-bool UGifFactory::IsImportResolutionValid(int32 Width, int32 Height, bool bAllowNonPowerOfTwo, FFeedbackContext* Warn)
+bool UGifFactory::IsImportResolutionValid
+(
+	int32				Width,
+	int32				Height,
+	bool				bAllowNonPowerOfTwo,
+	FFeedbackContext*	Warn
+)
 {
 	// Calculate the maximum supported resolution utilizing the global max texture mip count
 	// (Note, have to subtract 1 because 1x1 is a valid mip-size; this means a GMaxTextureMipCount of 4 means a max resolution of 8x8, not 2^4 = 16x16)
