@@ -1,4 +1,4 @@
-// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
+﻿// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
 
 #include "GifFactory.h"
 
@@ -28,9 +28,7 @@
 
 #include "SpriteEditorOnlyTypes.h"
 
-THIRD_PARTY_INCLUDES_START
-#include "giflib/lib/gif_lib_private.h"
-THIRD_PARTY_INCLUDES_END
+#include "gif_lib_private.h"
 
 #define LOCTEXT_NAMESPACE "GifFactories"
 
@@ -672,7 +670,7 @@ bool UGifFactory::IsImportResolutionValid
 	// Check if the texture dimensions are powers of two
 	if (!bAllowNonPowerOfTwo && !bIsPowerOfTwo)
 	{
-		Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString());
+		//Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString());
 		bValid = false;
 	}
 
