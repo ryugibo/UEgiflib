@@ -1,4 +1,4 @@
-/******************************************************************************
+﻿/******************************************************************************
 
 egif_lib.c - GIF encoding
 
@@ -8,8 +8,6 @@ two modules will be linked.  Preserve this property!
 
 *****************************************************************************/
 
-#include <unistd.h>
-#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -18,6 +16,7 @@ two modules will be linked.  Preserve this property!
 #ifdef _WIN32
 #include <io.h>
 #else
+#include <unistd.h>
 #include <sys/types.h>
 #endif /* _WIN32 */
 #include <sys/stat.h>

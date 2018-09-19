@@ -1,4 +1,4 @@
-/*****************************************************************************
+﻿/*****************************************************************************
 
 gif_hash.c -- module to support the following operations:
 
@@ -11,7 +11,9 @@ This module is used to hash the GIF codes during encoding.
 
 *****************************************************************************/
 
+#ifndef _WIN32
 #include <unistd.h>
+#endif /* _WIN32 */
 #include <stdint.h>
 #include <stdlib.h>
 #include <fcntl.h>
