@@ -235,6 +235,7 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture
 						{
 							break;
 						}
+
 						CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[Bit].Blue;
 						CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[Bit].Green;
 						CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[Bit].Red;
@@ -392,6 +393,7 @@ bool UGifFactory::DecodeGifDataToSprites
 							{
 								break;
 							}
+
 							Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
 							Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
 							Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
@@ -413,6 +415,7 @@ bool UGifFactory::DecodeGifDataToSprites
 						{
 							break;
 						}
+
 						Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
 						Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
 						Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
@@ -471,7 +474,7 @@ UTexture2D* UGifFactory::CreateTextureFromRawData
 	{
 		return nullptr;
 	}
-	if (!BmpImageWrapper->SetRaw(InRawData.GetData(), InRawData.Num(), Width, Height, ERGBFormat::BGRA, 24))
+	if (!BmpImageWrapper->SetRaw(InRawData.GetData(), InRawData.Num(), Width, Height, ERGBFormat::BGRA, 8))
 	{
 		return nullptr;
 	}
