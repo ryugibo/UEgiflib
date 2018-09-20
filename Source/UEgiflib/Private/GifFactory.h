@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Factories/TextureFactory.h"
 
-#include "gif_lib.h"
+#include "giflib/gif_lib.h"
 
 #include "GifFactory.generated.h"
 

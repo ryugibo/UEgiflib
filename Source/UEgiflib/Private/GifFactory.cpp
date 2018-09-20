@@ -28,8 +28,6 @@
 
 #include "SpriteEditorOnlyTypes.h"
 
-#include "gif_lib_private.h"
-
 #define LOCTEXT_NAMESPACE "GifFactories"
 
 int32 UGifFactory::GifIndex;
