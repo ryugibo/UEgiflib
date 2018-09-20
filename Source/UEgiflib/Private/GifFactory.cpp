@@ -670,7 +670,7 @@ bool UGifFactory::IsImportResolutionValid
 	// Check if the texture dimensions are powers of two
 	if (!bAllowNonPowerOfTwo && !bIsPowerOfTwo)
 	{
-		//Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString());
+		Warn->Log(ELogVerbosity::Error, *(NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString()));
 		bValid = false;
 	}
 
