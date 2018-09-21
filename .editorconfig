@@ -1,0 +1,9 @@
+# .editorconfig에 대한 자세한 내용은 https://aka.ms/editorconfigdocs
+
+root = true
+  
+[*]
+charset = utf-8-bom
+indent_style = tab
+indent_size = 4
+insert_final_newline = true

@@ -460,9 +460,9 @@ UTexture2D* UGifFactory::CreateTextureFromRawData
 	EObjectFlags			Flags,
 	UObject*				Context,
 	FFeedbackContext*		Warn,
- 	const TArray<uint8>&	InRawData,
- 	const int32&			Width,
- 	const int32&			Height
+	const TArray<uint8>&	InRawData,
+	const int32&			Width,
+	const int32&			Height
 )
 {
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
