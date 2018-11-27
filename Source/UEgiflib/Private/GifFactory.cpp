@@ -1,4 +1,4 @@
-﻿// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
+// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
 
 #include "GifFactory.h"
 
@@ -58,21 +58,12 @@ UObject* UGifFactory::FactoryCreateBinary
 	GifLength = BufferEnd - Buffer;
 	GifIndex = 0;
 
-	/** Texture Packing Test */
 	UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
-
-	if (!DecodeGifDataToSpritesPackedTexture(InParent, Name, Flags, Context, Type, Warn, (void *)Buffer, FlipbookFactory))
-	{
-		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSpritesPackedTexture"));
-		return nullptr;
-	}
-	/*
 	if (!DecodeGifDataToSprites(InParent, Name, Flags, Context, Type, Warn, (void *)Buffer, FlipbookFactory))
 	{
 		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSprites"));
 		return nullptr;
 	}
-	*/
 	UPaperFlipbook* Flipbook = CreateFlipbook(InParent, Name, Flags, Context, Warn, FlipbookFactory);
 
 	return Flipbook;
@@ -338,6 +329,8 @@ bool UGifFactory::DecodeGifDataToSprites
 		const GifWord ImageHeight = Frame.ImageDesc.Height;
 		const GifWord ImageWidth = Frame.ImageDesc.Width;
 
+		UE_LOG(LogGiflib, Log, TEXT("%s %d %d %d %d"), *Name.ToString(), ImageLeft, ImageTop, ImageHeight, ImageWidth);
+
 		TArray<uint8> Image;
 		Image.AddUninitialized(ImageWidth * ImageHeight * 4);
 
@@ -575,8 +568,14 @@ UPaperSprite* UGifFactory::CreatePaperSprite
 	{
 		FSpriteAssetInitParameters SpriteInitParams;
 		SpriteInitParams.SetTextureAndFill(InitialTexture);
-		SpriteInitParams.Offset = InOffset;
-		SpriteInitParams.Dimension = InDimension;
+		if (InOffset != FIntPoint::ZeroValue)
+		{
+			SpriteInitParams.Offset = InOffset;
+		}
+		if (InDimension != FIntPoint::ZeroValue)
+		{
+			SpriteInitParams.Dimension = InDimension;
+		}
 
 		const UPaperImporterSettings* ImporterSettings = GetDefault<UPaperImporterSettings>();
 
