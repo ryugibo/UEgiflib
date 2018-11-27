@@ -1,13 +1,11 @@
-// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
+﻿// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "Factories/TextureFactory.h"
 
-THIRD_PARTY_INCLUDES_START
-#include "giflib/lib/gif_lib.h"
-THIRD_PARTY_INCLUDES_END
+#include "giflib/gif_lib.h"
 
 #include "GifFactory.generated.h"
 

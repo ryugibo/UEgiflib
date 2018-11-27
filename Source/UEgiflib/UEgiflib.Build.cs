@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -6,15 +6,9 @@ public class UEgiflib : ModuleRules
 {
 	public UEgiflib(ReadOnlyTargetRules Target) : base(Target)
 	{
+		bEnableUndefinedIdentifierWarnings = false;
+
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		
-		PublicIncludePaths.AddRange(
-			new string[] {
-				"UEgiflib/Public"
-				// ... add public include paths required here ...
-			}
-			);
-				
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -30,7 +24,6 @@ public class UEgiflib : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"Giflib",
 				"UnrealEd",
 				"Paper2D",
 				"Paper2DEditor",

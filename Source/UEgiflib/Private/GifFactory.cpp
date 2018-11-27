@@ -1,4 +1,4 @@
-// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
+﻿// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
 
 #include "GifFactory.h"
 
@@ -27,10 +27,6 @@
 #include "RHIDefinitions.h"
 
 #include "SpriteEditorOnlyTypes.h"
-
-THIRD_PARTY_INCLUDES_START
-#include "giflib/lib/gif_lib_private.h"
-THIRD_PARTY_INCLUDES_END
 
 #define LOCTEXT_NAMESPACE "GifFactories"
 
@@ -237,6 +233,7 @@ bool UGifFactory::DecodeGifDataToSpritesPackedTexture
 						{
 							break;
 						}
+
 						CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[Bit].Blue;
 						CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[Bit].Green;
 						CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[Bit].Red;
@@ -394,6 +391,7 @@ bool UGifFactory::DecodeGifDataToSprites
 							{
 								break;
 							}
+
 							Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
 							Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
 							Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
@@ -415,6 +413,7 @@ bool UGifFactory::DecodeGifDataToSprites
 						{
 							break;
 						}
+
 						Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
 						Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
 						Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
@@ -461,9 +460,9 @@ UTexture2D* UGifFactory::CreateTextureFromRawData
 	EObjectFlags			Flags,
 	UObject*				Context,
 	FFeedbackContext*		Warn,
- 	const TArray<uint8>&	InRawData,
- 	const int32&			Width,
- 	const int32&			Height
+	const TArray<uint8>&	InRawData,
+	const int32&			Width,
+	const int32&			Height
 )
 {
 	IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>(FName("ImageWrapper"));
@@ -473,7 +472,7 @@ UTexture2D* UGifFactory::CreateTextureFromRawData
 	{
 		return nullptr;
 	}
-	if (!BmpImageWrapper->SetRaw(InRawData.GetData(), InRawData.Num(), Width, Height, ERGBFormat::BGRA, 24))
+	if (!BmpImageWrapper->SetRaw(InRawData.GetData(), InRawData.Num(), Width, Height, ERGBFormat::BGRA, 8))
 	{
 		return nullptr;
 	}
@@ -672,7 +671,7 @@ bool UGifFactory::IsImportResolutionValid
 	// Check if the texture dimensions are powers of two
 	if (!bAllowNonPowerOfTwo && !bIsPowerOfTwo)
 	{
-		Warn->Logf(ELogVerbosity::Error, *NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString());
+		Warn->Log(ELogVerbosity::Error, *(NSLOCTEXT("UnrealEd", "Warning_TextureNotAPowerOfTwo", "Cannot import texture with non-power of two dimensions").ToString()));
 		bValid = false;
 	}
 
