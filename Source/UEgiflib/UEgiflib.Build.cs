@@ -1,4 +1,4 @@
-﻿// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
+// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -6,6 +6,8 @@ public class UEgiflib : ModuleRules
 {
 	public UEgiflib(ReadOnlyTargetRules Target) : base(Target)
 	{
+		bEnableUndefinedIdentifierWarnings = false;
+
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		
 		PrivateIncludePaths.AddRange(
