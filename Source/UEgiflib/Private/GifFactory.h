@@ -1,4 +1,4 @@
-﻿// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
+// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -31,9 +31,6 @@ public:
 	virtual UObject* FactoryCreateBinary(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, class FFeedbackContext* Warn) override;
 
 private:
-
-	bool DecodeGifDataToSpritesPackedTexture(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, class FFeedbackContext* Warn, void* Data, class UPaperFlipbookFactory* FlipbookFactory);
-
 	bool DecodeGifDataToSprites(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, class FFeedbackContext* Warn, void* Data, class UPaperFlipbookFactory* FlipbookFactory);
 
 	class UTexture2D* CreateTextureFromRawData(UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, class FFeedbackContext* Warn, const TArray<uint8>& InRawData, const GifWord& InWidth, const GifWord& InHeight);

@@ -1,4 +1,4 @@
-﻿// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
+// Copyright 2018 Ryugibo, Inc. All Rights Reserved.
 
 #include "GifFactory.h"
 
@@ -27,6 +27,8 @@
 #include "RHIDefinitions.h"
 
 #include "SpriteEditorOnlyTypes.h"
+
+#include "ScopeExit.h"
 
 #define LOCTEXT_NAMESPACE "GifFactories"
 
@@ -58,245 +60,15 @@ UObject* UGifFactory::FactoryCreateBinary
 	GifLength = BufferEnd - Buffer;
 	GifIndex = 0;
 
-	/** Texture Packing Test */
 	UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
-
-	if (!DecodeGifDataToSpritesPackedTexture(InParent, Name, Flags, Context, Type, Warn, (void *)Buffer, FlipbookFactory))
-	{
-		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSpritesPackedTexture"));
-		return nullptr;
-	}
-	/*
 	if (!DecodeGifDataToSprites(InParent, Name, Flags, Context, Type, Warn, (void *)Buffer, FlipbookFactory))
 	{
 		UE_LOG(LogGiflib, Error, TEXT("Failed DecodeGifDataToSprites"));
 		return nullptr;
 	}
-	*/
 	UPaperFlipbook* Flipbook = CreateFlipbook(InParent, Name, Flags, Context, Warn, FlipbookFactory);
 
 	return Flipbook;
-}
-
-bool UGifFactory::DecodeGifDataToSpritesPackedTexture
-(
-	UObject*				InParent,
-	FName					Name,
-	EObjectFlags			Flags,
-	UObject*				Context,
-	const TCHAR*			Type,
-	FFeedbackContext*		Warn,
-	void*					Data,
-	UPaperFlipbookFactory*	FlipbookFactory
-)
-{
-	int ErrorCode;
-	GifFileType* FileType = DGifOpen((void *)Data, UGifFactory::OnReadGif, &ErrorCode);
-	if (FileType == nullptr)
-	{
-		UE_LOG(LogGiflib, Error, TEXT("DGifOpen Failed : %d"), ErrorCode);
-		return false;
-	}
-	if (DGifSlurp(FileType) == GIF_ERROR)
-	{
-		UE_LOG(LogGiflib, Error, TEXT("DGifSlurp Failed"));
-		return false;
-	}
-
-	const int32 ImageCount = FileType->ImageCount;
-	
-	const GifWord CanvasWidth = FileType->SWidth;
-	const GifWord CanvasHeight = FileType->SHeight;
-
-	int32 RowCount = 0;
-	float RowFloat = FMath::Sqrt(ImageCount);
-	RowCount = ((RowFloat - (int32)RowFloat) > 0) ? (RowFloat + 1) : (RowFloat);
-
-	const uint32 TextureSizeX = CanvasWidth * RowCount;
-	const uint32 TextureSizeY = CanvasHeight * RowCount;
-
-	TArray<uint8> FullImage;
-	FullImage.AddUninitialized(TextureSizeX * TextureSizeY * 4);
-
-	int LastDisposalMode = 0;
-
-	TArray<FSpriteInfo> SpriteInfos;
-	SpriteInfos.AddUninitialized(ImageCount);
-
-	FSpriteInfo LastSpriteInfo;
-	for (int image_i = 0; image_i < ImageCount; image_i++)
-	{
-		SavedImage& Frame = FileType->SavedImages[image_i];
-
-		const GifWord ImageLeft = Frame.ImageDesc.Left;
-		const GifWord ImageTop = Frame.ImageDesc.Top;
-		const GifWord ImageHeight = Frame.ImageDesc.Height;
-		const GifWord ImageWidth = Frame.ImageDesc.Width;
-
-		TArray<uint8> CurrentImage;
-		CurrentImage.AddUninitialized(CanvasWidth * CanvasHeight * 4);
-
-		bool HasGCB = false;
-		GraphicsControlBlock GCB = { 0, false, 0, -1 };
-		for (int ext_i = 0; ext_i < Frame.ExtensionBlockCount; ext_i++)
-		{
-			if (GIF_OK == DGifExtensionToGCB(Frame.ExtensionBlocks[ext_i].ByteCount, Frame.ExtensionBlocks[ext_i].Bytes, &GCB))
-			{
-				HasGCB = true;
-			}
-		}
-
-		bool bIsImageExist = false;
-		switch (LastDisposalMode)
-		{
-		case DISPOSE_DO_NOT:
-			if (image_i != 0 && Frame.RasterBits[0] == '\0')
-			{
-				SpriteInfos[image_i] = LastSpriteInfo;
-				bIsImageExist = true;
-			}
-			break;
-		case DISPOSE_BACKGROUND:
-			// TODO:
-			break;
-		case DISPOSE_PREVIOUS:
-			// TODO:
-			break;
-		}
-
-		FString SourceName = FString::Printf(TEXT("%s_%d"), *Name.ToString(), image_i);
-		if (!bIsImageExist)
-		{
-			ColorMapObject* CMO = Frame.ImageDesc.ColorMap ? Frame.ImageDesc.ColorMap : FileType->SColorMap;
-			GifColorType* ColorMap = CMO->Colors;
-			uint32 Raster_i = 0;
-			uint32 Blank_i = 0;
-
-			if (Frame.ImageDesc.Interlace)
-			{
-				int InterlacedOffset[] = { 0, 4, 2, 1 };
-				int InterlacedJumps[] = { 8, 8, 4, 2 };
-
-				for (int pass_i = 0; pass_i < 4; pass_i++)
-				{
-					for (int height_i = InterlacedOffset[pass_i]; height_i < CanvasHeight; height_i += InterlacedJumps[pass_i])
-					{
-						for (int width_i = 0; width_i < CanvasWidth; width_i++)
-						{
-							if ((width_i < ImageLeft || height_i < ImageTop) ||
-								(width_i >= (ImageLeft + ImageWidth) || height_i >= (ImageTop + ImageHeight)))
-							{
-								CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
-								CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
-								CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
-								CurrentImage[(Raster_i + Blank_i) * 4 + 3] = (HasGCB && (int)FileType->SBackGroundColor == GCB.TransparentColor) ? 0 : 255;
-
-								Blank_i++;
-
-								continue;
-							}
-							unsigned char& Bit = Frame.RasterBits[Raster_i];
-							if (Bit >= CMO->ColorCount)
-							{
-								break;
-							}
-							CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[Bit].Blue;
-							CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[Bit].Green;
-							CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[Bit].Red;
-							CurrentImage[(Raster_i + Blank_i) * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
-
-							Raster_i++;
-						}
-					}
-				}
-			}
-			else
-			{
-				for (int height_i = 0; height_i < CanvasHeight; height_i++)
-				{
-					for (int width_i = 0; width_i < CanvasWidth; width_i++)
-					{
-						if ((width_i < ImageLeft || height_i < ImageTop) || 
-							(width_i >= (ImageLeft + ImageWidth) || height_i >= (ImageTop + ImageHeight)))
-						{
-							CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
-							CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
-							CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
-							CurrentImage[(Raster_i + Blank_i) * 4 + 3] = (HasGCB && (int)FileType->SBackGroundColor == GCB.TransparentColor) ? 0 : 255;
-
-							Blank_i++;
-
-							continue;
-						}
-						unsigned char& Bit = Frame.RasterBits[Raster_i];
-						if (Bit >= CMO->ColorCount)
-						{
-							break;
-						}
-
-						CurrentImage[(Raster_i + Blank_i) * 4 + 0] = ColorMap[Bit].Blue;
-						CurrentImage[(Raster_i + Blank_i) * 4 + 1] = ColorMap[Bit].Green;
-						CurrentImage[(Raster_i + Blank_i) * 4 + 2] = ColorMap[Bit].Red;
-						CurrentImage[(Raster_i + Blank_i) * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
-
-						Raster_i++;
-					}
-				}
-			}
-
-			FIntPoint Offset((image_i % RowCount) * CanvasWidth, (image_i / RowCount) * CanvasHeight);
-			for (int height_i = 0; height_i < CanvasHeight; height_i++)
-			{
-				for (int width_i = 0; width_i < CanvasWidth; width_i++)
-				{
-					const uint32 From = 4 * (height_i * CanvasWidth + width_i);
-
-					uint32 To = (Offset.X + width_i + ((Offset.Y + height_i) * TextureSizeX)) * 4;
-
-					FullImage[To + 0] = CurrentImage[From + 0];
-					FullImage[To + 1] = CurrentImage[From + 1];
-					FullImage[To + 2] = CurrentImage[From + 2];
-					FullImage[To + 3] = CurrentImage[From + 3];
-				}
-			}
-
-			SpriteInfos[image_i].Offset = Offset;
-			SpriteInfos[image_i].Dimension = FIntPoint(CanvasWidth, CanvasHeight);
-			SpriteInfos[image_i].Frame = HasGCB ? (GCB.DelayTime) : 1;
-		}
-
-		LastSpriteInfo = SpriteInfos[image_i];
-
-		if (HasGCB)
-		{
-			LastDisposalMode = GCB.DisposalMode;
-		}
-		else
-		{
-			LastDisposalMode = DISPOSAL_UNSPECIFIED;
-		}
-	}
-
-	UTexture2D* ResultTexture = CreateTextureFromRawData(InParent, Name, Flags, Context, Warn, FullImage, TextureSizeX, TextureSizeY);
-
-	for (int32 image_i = 0; image_i < SpriteInfos.Num(); image_i++)
-	{
-		FSpriteInfo Info = SpriteInfos[image_i];
-		FString SourceName = FString::Printf(TEXT("%s_%d"), *Name.ToString(), image_i);
-		UPaperSprite* NewSprite = CreatePaperSprite(InParent, *SourceName, Flags, Context, Warn, ResultTexture, Info.Offset, Info.Dimension);
-
-		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
-		KeyFrame->Sprite = NewSprite;
-		KeyFrame->FrameRun = Info.Frame;
-	}
-
-	if (GIF_OK != DGifCloseFile(FileType, &ErrorCode))
-	{
-		UE_LOG(LogGiflib, Error, TEXT("DGifCloseFile Failed : %d"), ErrorCode);
-		return false;
-	}
-
-	return true;
 }
 
 bool UGifFactory::DecodeGifDataToSprites
@@ -327,16 +99,19 @@ bool UGifFactory::DecodeGifDataToSprites
 	const GifWord CanvasWidth = FileType->SWidth;
 	const GifWord CanvasHeight = FileType->SHeight;
 
-	UTexture2D* LastTexture = nullptr;
-	int LastDisposalMode = 0;
+	TArray<uint8> LastImage;
+	GifWord LastImageHeight = 0;
+	GifWord LastImageWidth = 0;
+	GifWord LastImageLeft = 0;
+	GifWord LastImageTop = 0;
 	for (int i = 0; i < FileType->ImageCount; i++)
 	{
 		SavedImage& Frame = FileType->SavedImages[i];
 
-		const GifWord ImageLeft = Frame.ImageDesc.Left;
-		const GifWord ImageTop = Frame.ImageDesc.Top;
-		const GifWord ImageHeight = Frame.ImageDesc.Height;
-		const GifWord ImageWidth = Frame.ImageDesc.Width;
+		GifWord ImageHeight = Frame.ImageDesc.Height;
+		GifWord ImageWidth = Frame.ImageDesc.Width;
+		GifWord ImageLeft = Frame.ImageDesc.Left;
+		GifWord ImageTop = Frame.ImageDesc.Top;
 
 		TArray<uint8> Image;
 		Image.AddUninitialized(ImageWidth * ImageHeight * 4);
@@ -351,60 +126,19 @@ bool UGifFactory::DecodeGifDataToSprites
 			}
 		}
 
-		UTexture2D* NewTexture = nullptr;
-		switch (LastDisposalMode)
-		{
-		case DISPOSE_DO_NOT:
-			if (LastTexture != nullptr && Frame.RasterBits[0] == '\0')
-			{
-				NewTexture = LastTexture;
-			}
-			break;
-		case DISPOSE_BACKGROUND:
-			// TODO:
-			break;
-		case DISPOSE_PREVIOUS:
-			// TODO:
-			break;
-		}
-
 		FString SourceName = FString::Printf(TEXT("%s_%d"), *Name.ToString(), i);
-		if (NewTexture == nullptr)
+		ColorMapObject* CMO = Frame.ImageDesc.ColorMap ? Frame.ImageDesc.ColorMap : FileType->SColorMap;
+		GifColorType* ColorMap = CMO->Colors;
+		uint32 Raster_i = 0;
+
+		if (Frame.ImageDesc.Interlace)
 		{
-			ColorMapObject* CMO = Frame.ImageDesc.ColorMap ? Frame.ImageDesc.ColorMap : FileType->SColorMap;
-			GifColorType* ColorMap = CMO->Colors;
-			uint32 Raster_i = 0;
+			int InterlacedOffset[] = { 0, 4, 2, 1 };
+			int InterlacedJumps[] = { 8, 8, 4, 2 };
 
-			if (Frame.ImageDesc.Interlace)
+			for (int pass_i = 0; pass_i < 4; pass_i++)
 			{
-				int InterlacedOffset[] = { 0, 4, 2, 1 };
-				int InterlacedJumps[] = { 8, 8, 4, 2 };
-
-				for (int pass_i = 0; pass_i < 4; pass_i++)
-				{
-					for (int height_i = InterlacedOffset[pass_i]; height_i < ImageHeight; height_i += InterlacedJumps[pass_i])
-					{
-						for (int width_i = 0; width_i < ImageWidth; width_i++)
-						{
-							unsigned char& Bit = Frame.RasterBits[Raster_i];
-							if (Bit >= CMO->ColorCount)
-							{
-								break;
-							}
-
-							Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
-							Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
-							Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
-							Image[Raster_i * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
-
-							Raster_i++;
-						}
-					}
-				}
-			}
-			else
-			{
-				for (int height_i = 0; height_i < ImageHeight; height_i++)
+				for (int height_i = InterlacedOffset[pass_i]; height_i < ImageHeight; height_i += InterlacedJumps[pass_i])
 				{
 					for (int width_i = 0; width_i < ImageWidth; width_i++)
 					{
@@ -413,35 +147,144 @@ bool UGifFactory::DecodeGifDataToSprites
 						{
 							break;
 						}
+						ON_SCOPE_EXIT
+						{
+							Raster_i++;
+						};
+						bool bIsTransparent = (HasGCB && (int)Bit == GCB.TransparentColor);
 
 						Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
 						Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
 						Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
-						Image[Raster_i * 4 + 3] = (HasGCB && (int)Bit == GCB.TransparentColor) ? 0 : 255;
-
-						Raster_i++;
+						Image[Raster_i * 4 + 3] = bIsTransparent ? 0 : 255;
 					}
 				}
 			}
+		}
+		else
+		{
+			for (int height_i = 0; height_i < ImageHeight; height_i++)
+			{
+				for (int width_i = 0; width_i < ImageWidth; width_i++)
+				{
+					unsigned char& Bit = Frame.RasterBits[Raster_i];
+					if (Bit >= CMO->ColorCount)
+					{
+						break;
+					}
+					ON_SCOPE_EXIT
+					{
+						Raster_i++;
+					};
 
-			NewTexture = CreateTextureFromRawData(InParent, *SourceName, Flags, Context, Warn, Image, ImageWidth, ImageHeight);
+					bool bIsTransparent = (HasGCB && (int)Bit == GCB.TransparentColor);
+
+					Image[Raster_i * 4 + 0] = ColorMap[Bit].Blue;
+					Image[Raster_i * 4 + 1] = ColorMap[Bit].Green;
+					Image[Raster_i * 4 + 2] = ColorMap[Bit].Red;
+					Image[Raster_i * 4 + 3] = bIsTransparent ? 0 : 255;
+				}
+			}
 		}
 
+		if (LastImage.Num() > 0)
+		{
+			TArray<uint8> UpperLayer = Image;
+			Image = LastImage;
+
+			for (int height_i = 0; height_i < ImageHeight; height_i++)
+			{
+				for (int width_i = 0; width_i < ImageWidth; width_i++)
+				{
+					const int UpperLayerIndex = width_i + height_i * ImageWidth;
+					const int BackLayerIndex = (ImageLeft + width_i) + (ImageTop + height_i) * LastImageWidth;
+
+					if (UpperLayer[UpperLayerIndex * 4 + 3] == 0)
+					{
+						continue;
+					}
+					Image[BackLayerIndex * 4 + 0] = UpperLayer[UpperLayerIndex * 4 + 0];
+					Image[BackLayerIndex * 4 + 1] = UpperLayer[UpperLayerIndex * 4 + 1];
+					Image[BackLayerIndex * 4 + 2] = UpperLayer[UpperLayerIndex * 4 + 2];
+					Image[BackLayerIndex * 4 + 3] = UpperLayer[UpperLayerIndex * 4 + 3];
+				}
+			}
+
+			ImageHeight = LastImageHeight;
+			ImageWidth = LastImageWidth;
+			ImageLeft = LastImageLeft;
+			ImageTop = LastImageTop;
+		}
+
+		UTexture2D* NewTexture = CreateTextureFromRawData(InParent, *SourceName, Flags, Context, Warn, Image, ImageWidth, ImageHeight);
+
 		UPaperSprite* NewSprite = CreatePaperSprite(InParent, *SourceName, Flags, Context, Warn, NewTexture);
+
+		const float LeftPivot = (CanvasWidth / 2) - ImageLeft;
+		const float TopPivot = (CanvasHeight / 2) - ImageTop;
+		NewSprite->SetPivotMode(ESpritePivotMode::Custom, FVector2D(LeftPivot, TopPivot));
 
 		FPaperFlipbookKeyFrame* KeyFrame = new (FlipbookFactory->KeyFrames) FPaperFlipbookKeyFrame();
 		KeyFrame->Sprite = NewSprite;
 		KeyFrame->FrameRun = HasGCB ? (GCB.DelayTime) : 1;
 
 		// Update Last Image Infos
-		LastTexture = NewTexture;
 		if (HasGCB)
 		{
-			LastDisposalMode = GCB.DisposalMode;
-		}
-		else
-		{
-			LastDisposalMode = DISPOSAL_UNSPECIFIED;
+			switch (GCB.DisposalMode)
+			{
+			case DISPOSE_DO_NOT:
+			{
+				LastImage = Image;
+				LastImageHeight = ImageHeight;
+				LastImageWidth = ImageWidth;
+				LastImageLeft = ImageLeft;
+				LastImageTop = ImageTop;
+			}	break;
+
+			case DISPOSE_BACKGROUND:
+			{
+				LastImage = Image;
+				LastImageHeight = ImageHeight;
+				LastImageWidth = ImageWidth;
+				LastImageLeft = ImageLeft;
+				LastImageTop = ImageTop;
+
+				for (int height_i = 0; height_i < ImageHeight; height_i++)
+				{
+					if (height_i < Frame.ImageDesc.Top)
+					{
+						continue;
+					}
+					else if (height_i >= Frame.ImageDesc.Top + Frame.ImageDesc.Height)
+					{
+						continue;
+					}
+
+					for (int width_i = 0; width_i < ImageWidth; width_i++)
+					{
+						if (width_i < Frame.ImageDesc.Left)
+						{
+							continue;
+						}
+						else if (width_i >= Frame.ImageDesc.Left + Frame.ImageDesc.Width)
+						{
+							continue;
+						}
+						const int Index = width_i + height_i * ImageWidth;
+						bool bIsTransparent = (HasGCB && FileType->SBackGroundColor == GCB.TransparentColor);
+						LastImage[Index * 4 + 0] = ColorMap[FileType->SBackGroundColor].Blue;
+						LastImage[Index * 4 + 1] = ColorMap[FileType->SBackGroundColor].Green;
+						LastImage[Index * 4 + 2] = ColorMap[FileType->SBackGroundColor].Red;
+						LastImage[Index * 4 + 3] = bIsTransparent ? 0 : 255;
+					}
+				}
+			}	break;
+
+			case DISPOSE_PREVIOUS:
+			{
+			}	break;
+			}
 		}
 	}
 
@@ -575,8 +418,14 @@ UPaperSprite* UGifFactory::CreatePaperSprite
 	{
 		FSpriteAssetInitParameters SpriteInitParams;
 		SpriteInitParams.SetTextureAndFill(InitialTexture);
-		SpriteInitParams.Offset = InOffset;
-		SpriteInitParams.Dimension = InDimension;
+		if (InOffset != FIntPoint::ZeroValue)
+		{
+			SpriteInitParams.Offset = InOffset;
+		}
+		if (InDimension != FIntPoint::ZeroValue)
+		{
+			SpriteInitParams.Dimension = InDimension;
+		}
 
 		const UPaperImporterSettings* ImporterSettings = GetDefault<UPaperImporterSettings>();
 
