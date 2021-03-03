@@ -1,6 +1,8 @@
 # GIFLIB for UE4 Plugin.
 
-## In Develop...
+This project no more maintained. 
+
+I recommend use [GifSplitter](https://github.com/ryugibo/GifSplitter)
 
 ### Reference Sites.
 
